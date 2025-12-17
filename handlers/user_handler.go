@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -9,14 +10,16 @@ import (
 
 	"go-microservice-highload/models"
 	"go-microservice-highload/services"
+	"go-microservice-highload/utils"
 )
 
 type UserHandler struct {
-	svc *services.UserService
+	svc   *services.UserService
+	async *utils.AsyncProcessor
 }
 
-func NewUserHandler(svc *services.UserService) *UserHandler {
-	return &UserHandler{svc: svc}
+func NewUserHandler(svc *services.UserService, async *utils.AsyncProcessor) *UserHandler {
+	return &UserHandler{svc: svc, async: async}
 }
 
 func (h *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
@@ -52,6 +55,9 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.async.Audit(fmt.Sprintf("CREATE user_id=%d", created.ID))
+	h.async.Notify(fmt.Sprintf("User created id=%d email=%s", created.ID, created.Email))
+
 	writeJSON(w, http.StatusCreated, created)
 }
 
@@ -77,6 +83,9 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.async.Audit(fmt.Sprintf("UPDATE user_id=%d", updated.ID))
+	h.async.Notify(fmt.Sprintf("User updated id=%d", updated.ID))
+
 	writeJSON(w, http.StatusOK, updated)
 }
 
@@ -90,6 +99,9 @@ func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "user not found")
 		return
 	}
+
+	h.async.Audit(fmt.Sprintf("DELETE user_id=%d", id))
+	h.async.Notify(fmt.Sprintf("User deleted id=%d", id))
 
 	w.WriteHeader(http.StatusNoContent)
 }

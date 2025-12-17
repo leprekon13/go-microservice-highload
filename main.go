@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/gorilla/mux"
 
 	"go-microservice-highload/handlers"
 	"go-microservice-highload/services"
+	"go-microservice-highload/utils"
 )
 
 func main() {
@@ -17,8 +21,14 @@ func main() {
 		port = "8080"
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	async := utils.NewAsyncProcessor(10000, 10000)
+	async.Start(ctx)
+
 	userSvc := services.NewUserService()
-	userHandler := handlers.NewUserHandler(userSvc)
+	userHandler := handlers.NewUserHandler(userSvc, async)
 
 	r := mux.NewRouter()
 
