@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"go-microservice-highload/handlers"
+	"go-microservice-highload/metrics"
 	"go-microservice-highload/services"
 	"go-microservice-highload/utils"
 )
@@ -27,12 +28,20 @@ func main() {
 	async := utils.NewAsyncProcessor(10000, 10000)
 	async.Start(ctx)
 
+	limiter := utils.NewRateLimiter(1000, 5000)
+
 	userSvc := services.NewUserService()
 	userHandler := handlers.NewUserHandler(userSvc, async)
 
 	r := mux.NewRouter()
 
+	r.Handle("/metrics", metrics.Handler()).Methods(http.MethodGet)
+
 	api := r.PathPrefix("/api").Subrouter()
+
+	api.Use(limiter.Middleware)
+	api.Use(metrics.Middleware)
+
 	api.HandleFunc("/users", userHandler.GetUsers).Methods(http.MethodGet)
 	api.HandleFunc("/users/{id}", userHandler.GetUser).Methods(http.MethodGet)
 	api.HandleFunc("/users", userHandler.CreateUser).Methods(http.MethodPost)
